@@ -1,0 +1,29 @@
+# Environments
+.env
+.env.*
+!.env.example
+
+# IDEs
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Build
+build/
+dist/
+target/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyc
