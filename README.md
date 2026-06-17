@@ -1,4 +1,4 @@
-# Togithub
+# Togithub-skill
 
 > 推 GitHub 前的安全检查站——扫描、清理、确认、推送，一条命令搞定。
 
@@ -7,15 +7,15 @@
 
 **你用 AI 写完代码，想推上 GitHub，但不确定有没有泄露邮箱、API key、`Co-Authored-By: Claude`。**
 
-Togithub 帮你：扫描项目文件和 git 历史 → 列出所有问题 → 逐项让你确认 → 提交推送。
+Togithub-skill 帮你：扫描项目文件和 git 历史 → 列出所有问题 → 逐项让你确认 → 提交推送。
 
 ## 快速开始
 
 ```bash
-git clone https://github.com/wh520-wh/Togithub.git ~/.claude/skills/Togithub
+git clone https://github.com/wh520-wh/Togithub-skill.git ~/.claude/skills/Togithub-skill
 ```
 
-然后在任何项目里说"推送到 GitHub"或 `/Togithub` 即可。
+然后在任何项目里说"推送到 GitHub"或 `/Togithub-skill` 即可。
 
 ## 扫描结果示例
 
@@ -34,7 +34,7 @@ git clone https://github.com/wh520-wh/Togithub.git ~/.claude/skills/Togithub
 
 以下任意一句话都能触发：
 
-- `/Togithub`
+- `/Togithub-skill`
 - 推送到 GitHub / 推上 github / publish to github
 - 上传到 GitHub / 发布到 GitHub / 推到远程
 
@@ -54,7 +54,7 @@ git clone https://github.com/wh520-wh/Togithub.git ~/.claude/skills/Togithub
 
 ## 它和同类有什么不同？
 
-| 特性 | Togithub | 手动检查 | pre-commit hooks |
+| 特性 | Togithub-skill | 手动检查 | pre-commit hooks |
 |---|---|---|---|
 | 扫描 git 历史 | ✅ | ❌ | ❌ |
 | 逐项确认 | ✅ | ✅ | ❌（自动拒绝） |
