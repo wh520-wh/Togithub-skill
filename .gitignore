@@ -27,3 +27,6 @@ target/
 __pycache__/
 *.py[cod]
 *.pyc
+
+# Claude Code local config
+CLAUDE.md
