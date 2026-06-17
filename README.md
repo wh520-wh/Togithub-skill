@@ -1,83 +1,42 @@
 # Togithub
 
-> 推 GitHub 前自动清隐私和 AI 痕迹，再也不怕忘删 .env。
+> 推 GitHub 前的安全检查站——扫描、清理、确认、推送，一条命令搞定。
 
-一个 Claude Code Skill：把本地项目推上 GitHub 之前，自动扫描并清理个人隐私信息、AI 协作痕迹、危险文件。逐项向你确认，绝不擅自删除。
+[![Claude Code Skill](https://img.shields.io/badge/Claude%20Code-Skill-blue)](https://claude.ai/code)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-## 你什么时候需要它？
+**你用 AI 写完代码，想推上 GitHub，但不确定有没有泄露邮箱、API key、`Co-Authored-By: Claude`。**
 
-**场景 1**：你用 Claude Code 写完一个项目，想推上 GitHub，但不确定代码里有没有泄露邮箱、手机号、API key。
-
-**场景 2**：你的 git 历史里有 `Co-Authored-By: Claude`，不想让别人知道你用 AI 辅助开发。
-
-**场景 3**：你有 `.env` 文件、本地路径 `D:\Users\你的名字\`，推之前想确认一遍。
-
-## 它会交付什么？
-
-安装后，用 `/Togithub` 或说"推送到 GitHub"触发。它会：
-
-1. 扫描你的项目文件和 git 历史
-2. 列出所有发现的问题（隐私/AI 痕迹/危险文件）
-3. 逐项让你确认处理方式（删除/替换/跳过）
-4. 提交并推送到 GitHub
-
-扫描结果示例：
-
-```json
-{
-  "summary": {
-    "total": 12,
-    "by_category": {
-      "dangerous_file": 1,
-      "ai_trace_content": 3,
-      "privacy_pattern": 8
-    },
-    "by_severity": {
-      "danger": 2,
-      "warn": 7,
-      "info": 3
-    }
-  },
-  "findings": [
-    {
-      "category": "dangerous_file",
-      "severity": "danger",
-      "path": ".env",
-      "suggestion": "绝不推送：加入 .gitignore 或改用环境变量"
-    },
-    {
-      "category": "privacy_pattern",
-      "severity": "danger",
-      "path": "config.py",
-      "line": 3,
-      "pattern": "api-key",
-      "snippet": "api_key = 'abcdefghijklmnopqrst'",
-      "suggestion": "替换为占位符（如 `<API-KEY>`）或删除"
-    }
-  ]
-}
-```
+Togithub 帮你：扫描项目文件和 git 历史 → 列出所有问题 → 逐项让你确认 → 提交推送。
 
 ## 快速开始
 
 ```bash
-# 克隆到 Claude Code skills 目录
 git clone https://github.com/wh520-wh/Togithub.git ~/.claude/skills/Togithub
 ```
 
 然后在任何项目里说"推送到 GitHub"或 `/Togithub` 即可。
 
+## 扫描结果示例
+
+```json
+{
+  "summary": { "total": 12, "danger": 2, "warn": 7, "info": 3 },
+  "findings": [
+    { "path": ".env", "severity": "danger", "suggestion": "绝不推送" },
+    { "path": "config.py:3", "severity": "danger", "pattern": "api-key", "snippet": "api_key = 'abcdefghijklmnopqrst'" },
+    { "path": "README.md:42", "severity": "warn", "pattern": "Co-Authored-By: Claude" }
+  ]
+}
+```
+
 ## 触发方式
 
 以下任意一句话都能触发：
 
-- 推送到 GitHub
-- 推上 github
-- publish to github
-- 上传到 GitHub
-- 发布到 GitHub
-- 推到远程
-- /Togithub
+- `/Togithub`
+- 推送到 GitHub / 推上 github / publish to github
+- 上传到 GitHub / 发布到 GitHub / 推到远程
 
 ## 它扫描什么？
 
