@@ -112,6 +112,41 @@ AI_CONTENT_PATTERNS = [
     (re.compile(r"🤖.*Generated", re.IGNORECASE), "ai-attribution"),
 ]
 
+# Email whitelist: addresses that are not real personal emails.
+# - Reserved TLDs (RFC 6761/2606): .example .test .invalid .localhost
+# - Reserved example domains
+# - Specific no-reply addresses
+SAFE_EMAIL_TLDS = {".example", ".test", ".invalid", ".localhost"}
+SAFE_EMAIL_DOMAINS = {"example.com", "example.org", "example.net", "test.com"}
+SAFE_EMAIL_FULL = {"noreply@github.com"}
+# Placeholder local parts that, on GitHub platform domains, are not real
+# personal emails (e.g. commit-bot noreply addresses).
+SAFE_EMAIL_PLACEHOLDER_LOCALS = {
+    "user", "foo", "bar", "your-email", "your.email", "email",
+    "test", "example", "admin", "noreply",
+}
+SAFE_EMAIL_GITHUB_DOMAINS = {"github.com", "users.noreply.github.com"}
+
+
+def _is_safe_email(addr: str) -> bool:
+    """Return True if addr is a placeholder/example email that should not be reported."""
+    addr = addr.strip().lower()
+    if addr in SAFE_EMAIL_FULL:
+        return True
+    if "@" not in addr:
+        return False
+    local, _, domain = addr.rpartition("@")
+    # reserved TLD
+    for tld in SAFE_EMAIL_TLDS:
+        if domain.endswith(tld):
+            return True
+    if domain in SAFE_EMAIL_DOMAINS:
+        return True
+    if domain in SAFE_EMAIL_GITHUB_DOMAINS and local in SAFE_EMAIL_PLACEHOLDER_LOCALS:
+        return True
+    return False
+
+
 PRIVACY_PATTERNS = [
     ("email", re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b")),
     # CN mobile: optional +86 prefix, optional spaces/dashes between groups
@@ -336,6 +371,8 @@ def scan_line(line: str, line_no: int | str, rel: str) -> list[Finding]:
         if m:
             # bank-card: reject all-same-digit strings (e.g. 1111111111111111)
             if name == "bank-card" and len(set(m.group())) == 1:
+                continue
+            if name == "email" and _is_safe_email(m.group()):
                 continue
             findings.append(Finding(
                 category="privacy_pattern",
@@ -606,6 +643,24 @@ def _self_test() -> int:
     check_scan_line("attribution: pure org",
                     "Maintainer: Alibaba", {"org-name-hint"})
     check_scan_line("attribution: MIT org", "Author: MIT", {"org-name-hint"})
+
+    print()
+    print("[1c] email whitelist")
+    for addr in ["noreply@github.com", "user@example.com", "foo@test.com",
+                 "admin@example.invalid"]:
+        check_scan_line(f"safe email: {addr!r}", addr, set())
+    # GitHub 平台域：占位 local 不报，真实用户名仍报（覆盖 github 域分支）
+    check_scan_line("safe email github user", "user@github.com", set())
+    check_scan_line("safe email noreply users.noreply",
+                    "noreply@users.noreply.github.com", set())
+    check_scan_line("real email github user",
+                    "zhangsan@users.noreply.github.com", {"email"})
+    # 真实邮箱仍报
+    check_scan_line("real email .cn", "zhangsan@realcompany.cn", {"email"})
+    check_scan_line("real email apple.com", "zhangsan@apple.com", {"email"})
+    # 同行白名单邮箱 + 真手机号：邮箱不报、手机号仍报
+    check_scan_line("mixed line keeps phone",
+                    "contact: noreply@github.com 或 13812345678", {"phone-cn"})
 
     print()
 
