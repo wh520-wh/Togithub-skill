@@ -785,6 +785,11 @@ def _self_test() -> int:
         (tmpdir / "README.md").write_text(
             "# My Project\nCo-Authored-By: Claude\n"
         )
+        (tmpdir / "CREDITS.md").write_text(
+            "Author: Zhang San Tencent\n"
+            "Author: Li Si Tencent\n"
+            "Author: Wang Wu Tencent\n"
+        )
         (tmpdir / ".claude").mkdir()
         (tmpdir / ".claude" / "memory.md").write_text("some memory")
         (tmpdir / "safe.txt").write_text("nothing sensitive here\n")
@@ -815,6 +820,10 @@ def _self_test() -> int:
             if is_scannable(p):
                 findings.extend(scan_file_content(p, rel))
 
+        # Aggregate info-severity hints (mirrors what main does), so this
+        # integration test exercises the real scan -> aggregate path.
+        findings = aggregate_info_findings(findings)
+
         cats = {}
         for f in findings:
             cats.setdefault(f.category, []).append(f)
@@ -834,6 +843,14 @@ def _self_test() -> int:
         check("config.py api-key detected",
               "privacy_pattern" in cats and any("config.py" in f.path for f in cats["privacy_pattern"]),
               True)
+
+        check("CREDITS.md org-name-hint aggregated to 1",
+              sum(1 for f in findings if f.path == "CREDITS.md"
+                  and f.pattern == "org-name-hint"), 1)
+        cred = [f for f in findings if f.path == "CREDITS.md"
+                and f.pattern == "org-name-hint"]
+        check("CREDITS.md org-name-hint count==3",
+              cred[0].count if cred else None, 3)
 
         check("safe.txt has no findings",
               not any("safe.txt" in f.path for f in findings),
@@ -886,6 +903,7 @@ def main() -> int:
     # File scan
     if not args.history_only:
         seen_dirs: set[str] = set()
+        file_findings: list[Finding] = []
         for p in iter_files(root):
             rel = str(p.relative_to(root))
 
@@ -898,7 +916,7 @@ def main() -> int:
                 continue
 
             if sz > LARGE_FILE_BYTES:
-                findings.append(Finding(
+                file_findings.append(Finding(
                     category="large_file",
                     severity="warn",
                     path=rel,
@@ -907,7 +925,7 @@ def main() -> int:
                 ))
 
             if match_dangerous_file(rel):
-                findings.append(Finding(
+                file_findings.append(Finding(
                     category="dangerous_file",
                     severity="danger",
                     path=rel,
@@ -919,7 +937,7 @@ def main() -> int:
                 top = rel.split("/", 1)[0] if "/" in rel else rel
                 if top not in seen_dirs:
                     seen_dirs.add(top)
-                    findings.append(Finding(
+                    file_findings.append(Finding(
                         category="ai_trace_file",
                         severity="warn",
                         path=top,
@@ -928,11 +946,22 @@ def main() -> int:
                 continue
 
             if is_scannable(p):
-                findings.extend(scan_file_content(p, rel))
+                file_findings.extend(scan_file_content(p, rel))
+
+        findings.extend(aggregate_info_findings(file_findings))
 
     # History scan
     if args.scan_history or args.history_only:
-        findings.extend(scan_history(root, max_commits=args.max_commits))
+        hist_findings = scan_history(root, max_commits=args.max_commits)
+        # Normalize history info-finding paths from commit:<sha>:<file>:<line>
+        # to commit:<sha>:<file> so multi-line hints in one file aggregate.
+        for f in hist_findings:
+            if f.severity == "info" and f.path.startswith("commit:"):
+                parts = f.path.split(":")
+                # parts: [commit, <sha>, <file>, <line>...]
+                if len(parts) >= 3:
+                    f.path = ":".join(parts[:3])
+        findings.extend(aggregate_info_findings(hist_findings))
 
     # Build JSON output
     out = {
