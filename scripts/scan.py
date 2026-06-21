@@ -147,6 +147,23 @@ def _is_safe_email(addr: str) -> bool:
     return False
 
 
+# Placeholder usernames in example local paths.
+SAFE_PATH_USERS = {
+    "user", "username", "user-name", "alice", "bob", "foo", "bar",
+    "yourname", "your-name", "name", "project", "app", "home",
+    "example", "default", "guest", "admin", "test",
+}
+
+
+def _is_safe_path_user(m: re.Match) -> bool:
+    """True if the matched local path's user segment is a placeholder."""
+    try:
+        user = m.group(1).lower()
+    except (IndexError, AttributeError):
+        return False
+    return user in SAFE_PATH_USERS
+
+
 PRIVACY_PATTERNS = [
     ("email", re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b")),
     # CN mobile: optional +86 prefix, optional spaces/dashes between groups
@@ -169,8 +186,8 @@ PRIVACY_PATTERNS = [
         r"(?i)(api[_-]?key|secret|token|password|passwd|pwd|access[_-]?key|auth[_-]?token)"
         r"\s*[:=]\s*['\"]?([A-Za-z0-9_\-/+=]{16,})['\"]?"
     )),
-    ("local-path-win", re.compile(r"[A-Z]:\\Users\\[\w\-\. ]+\\", re.IGNORECASE)),
-    ("local-path-unix", re.compile(r"/(?:Users|home)/[\w\-\. ]+/")),
+    ("local-path-win", re.compile(r"[A-Z]:\\Users\\([\w\-\. ]+)\\", re.IGNORECASE)),
+    ("local-path-unix", re.compile(r"/(?:Users|home)/([\w\-\. ]+)/")),
     ("home-tilde", re.compile(r"~/\.?(?:ssh|aws|config|gnupg)/[\w\-\.]+")),
     # 127.x is loopback (not leakable), 10/172.16-31/192.168 are RFC1918 private
     ("ipv4-private", re.compile(
@@ -373,6 +390,8 @@ def scan_line(line: str, line_no: int | str, rel: str) -> list[Finding]:
             if name == "bank-card" and len(set(m.group())) == 1:
                 continue
             if name == "email" and _is_safe_email(m.group()):
+                continue
+            if name in ("local-path-win", "local-path-unix") and _is_safe_path_user(m):
                 continue
             findings.append(Finding(
                 category="privacy_pattern",
@@ -661,6 +680,16 @@ def _self_test() -> int:
     # 同行白名单邮箱 + 真手机号：邮箱不报、手机号仍报
     check_scan_line("mixed line keeps phone",
                     "contact: noreply@github.com 或 13812345678", {"phone-cn"})
+
+    print()
+    print("[1d] local-path whitelist")
+    for p in ["/home/user/x", "/home/alice/.ssh", "C:\\Users\\user\\x"]:
+        check_scan_line(f"safe path: {p!r}", p, set())
+    check_scan_line("real path unix", "/home/zhangsan/x", {"local-path-unix"})
+    check_scan_line("real path win", r"C:\Users\zhangsan\x", {"local-path-win"})
+    # Windows 正斜杠路径由 local-path-unix 命中，捕获组同样取用户名段
+    check_scan_line("safe path win fwdslash", "C:/Users/user/x", set())
+    check_scan_line("real path win fwdslash", "C:/Users/zhangsan/x", {"local-path-unix"})
 
     print()
 
