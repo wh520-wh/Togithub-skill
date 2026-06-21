@@ -201,21 +201,27 @@ EXCLUDE_CONTEXT = (
     r"|Maps|Fonts|Translate|Cloud|Ads|Analytics|Firebase"  # Google products
     r")"
 )
+
+# A line that looks like an attribution / signature line. org-name-hint only
+# fires on these lines, so that "metadata" / "apple pie" in running prose
+# never triggers a company-name hint. (real-name-hint is separately scoped by
+# its own Author/Maintainer/... prefix in NAME_HINT_PATTERNS, so it needs no
+# gate here.)
+ATTRIBUTION_LINE = re.compile(
+    r"^[\s#/*\-]*(?:作者|Author|Maintainer|Owner|Created\s+by|By|by)\s*[:：]?"
+)
 ORG_NAME_HINT = re.compile(
     r"(?<![A-Za-z0-9])(武汉大学|清华大学|北京大学|复旦大学|上海交通大学|浙江大学|中山大学|华中科技大学)"
     r"|(?<![A-Za-z0-9])(Wuhan\s+University|Tsinghua\s+University|Peking\s+University|Fudan\s+University)"
     r"|(?<![A-Za-z0-9])(Stanford\s+NLP|Berkeley\s+DB)"
     r"|(?<![A-Za-z0-9])(Microsoft|Google|Apple|Amazon|Meta|Tencent|Alibaba|Baidu|Bytedance|Huawei|NetEase|Meituan)(?!" + EXCLUDE_CONTEXT + r")",
-    re.IGNORECASE,
 )
 # MIT is a special case: "MIT License" / "MIT协议" should not flag.
 ORG_NAME_HINT_MIT = re.compile(
     r"(?<![A-Za-z0-9])MIT(?![A-Za-z0-9])",
-    re.IGNORECASE,
 )
 MIT_FOLLOWED_BY_LICENSE = re.compile(
-    r"MIT(?:\s+(?:License|许可证|协议|许可))",
-    re.IGNORECASE,
+    r"MIT(?:\s*(?:License|许可证|协议|许可))",
 )
 
 # --------------------------------------------------------------------------- #
@@ -355,22 +361,24 @@ def scan_line(line: str, line_no: int | str, rel: str) -> list[Finding]:
             suggestion="确认是否需要匿名化（取决于开源意图）",
         ))
 
-    # Org hint (with special-case filters)
-    m = ORG_NAME_HINT.search(line)
-    org_match = bool(m) or (
-        bool(ORG_NAME_HINT_MIT.search(line))
-        and not bool(MIT_FOLLOWED_BY_LICENSE.search(line))
-    )
-    if org_match:
-        findings.append(Finding(
-            category="privacy_pattern",
-            severity="info",
-            path=rel,
-            line=line_no,
-            pattern="org-name-hint",
-            snippet=stripped,
-            suggestion="确认是否需要匿名化（学校/公司）",
-        ))
+    # Org hint: only on attribution lines (Author/Maintainer/...), so prose
+    # words like "metadata" / "apple pie" never trigger it.
+    if ATTRIBUTION_LINE.search(line):
+        m = ORG_NAME_HINT.search(line)
+        org_match = bool(m) or (
+            bool(ORG_NAME_HINT_MIT.search(line))
+            and not bool(MIT_FOLLOWED_BY_LICENSE.search(line))
+        )
+        if org_match:
+            findings.append(Finding(
+                category="privacy_pattern",
+                severity="info",
+                path=rel,
+                line=line_no,
+                pattern="org-name-hint",
+                snippet=stripped,
+                suggestion="确认是否需要匿名化（学校/公司）",
+            ))
 
     return findings
 
@@ -582,6 +590,22 @@ def _self_test() -> int:
     check_pattern("ai-attribution", "Generated with Claude Code", True)
     check_pattern("ai-leak", "<system-reminder>", True)
     check_pattern("ai-leak", "normal code line", False)
+
+    print()
+    print("[1b] org-name-hint attribution gating")
+    # 正文词不应触发 org-name-hint
+    for word in ["metadata", "metaphor", "apple pie", "viewport",
+                 "und mit Liebe", "Google Maps SDK", "Microsoft YaHei",
+                 "本项目采用MIT协议"]:
+        check_scan_line(f"non-attribution: {word!r}", word, set())
+    # 署名行应触发 org-name-hint
+    check_scan_line("attribution: 张三 Tencent",
+                    "Author: 张三 Tencent", {"real-name-hint", "org-name-hint"})
+    check_scan_line("attribution: Apple Inc.",
+                    "Author: Zhang San, Apple Inc.", {"real-name-hint", "org-name-hint"})
+    check_scan_line("attribution: pure org",
+                    "Maintainer: Alibaba", {"org-name-hint"})
+    check_scan_line("attribution: MIT org", "Author: MIT", {"org-name-hint"})
 
     print()
 
