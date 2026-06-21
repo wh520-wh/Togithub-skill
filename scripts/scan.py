@@ -164,6 +164,14 @@ def _is_safe_path_user(m: re.Match) -> bool:
     return user in SAFE_PATH_USERS
 
 
+# Default-gateway / generic private IPs that are textbook examples, not leaks.
+SAFE_PRIVATE_IPS = {"192.168.0.1", "192.168.1.1", "10.0.0.1", "10.0.0.2"}
+
+
+def _is_safe_private_ip(ip_str: str) -> bool:
+    return ip_str in SAFE_PRIVATE_IPS
+
+
 PRIVACY_PATTERNS = [
     ("email", re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b")),
     # CN mobile: optional +86 prefix, optional spaces/dashes between groups
@@ -392,6 +400,8 @@ def scan_line(line: str, line_no: int | str, rel: str) -> list[Finding]:
             if name == "email" and _is_safe_email(m.group()):
                 continue
             if name in ("local-path-win", "local-path-unix") and _is_safe_path_user(m):
+                continue
+            if name == "ipv4-private" and _is_safe_private_ip(m.group()):
                 continue
             findings.append(Finding(
                 category="privacy_pattern",
@@ -690,6 +700,12 @@ def _self_test() -> int:
     # Windows 正斜杠路径由 local-path-unix 命中，捕获组同样取用户名段
     check_scan_line("safe path win fwdslash", "C:/Users/user/x", set())
     check_scan_line("real path win fwdslash", "C:/Users/zhangsan/x", {"local-path-unix"})
+
+    print()
+    print("[1e] ipv4-private whitelist")
+    for ip in ["192.168.0.1", "192.168.1.1", "10.0.0.1", "10.0.0.2"]:
+        check_scan_line(f"safe ip: {ip!r}", ip, set())
+    check_scan_line("real private ip", "192.168.1.100", {"ipv4-private"})
 
     print()
 
