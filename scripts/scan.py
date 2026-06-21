@@ -449,6 +449,32 @@ def scan_line(line: str, line_no: int | str, rel: str) -> list[Finding]:
     return findings
 
 
+def aggregate_info_findings(findings: list[Finding]) -> list[Finding]:
+    """Merge info-severity findings sharing the same (path, pattern) into one.
+
+    Non-info findings pass through unchanged. The merged finding keeps the
+    first occurrence's line/snippet/suggestion and sets `count` to the number
+    merged. Order: non-info findings keep original relative order; info
+    findings are emitted at the position of their first occurrence.
+    """
+    result: list[Finding] = []
+    seen: dict[tuple[str, str | None], int] = {}  # (path, pattern) -> index in result
+    for f in findings:
+        if f.severity != "info" or f.pattern is None:
+            result.append(f)
+            continue
+        key = (f.path, f.pattern)
+        if key in seen:
+            idx = seen[key]
+            result[idx].count = (result[idx].count or 1) + 1
+        else:
+            seen[key] = len(result)
+            f_copy = Finding(**asdict(f))
+            f_copy.count = 1
+            result.append(f_copy)
+    return result
+
+
 def scan_history(root: Path, max_commits: int = 200) -> list[Finding]:
     """Run `git log -p` and scan every added/modified line for the same patterns.
 
@@ -706,6 +732,41 @@ def _self_test() -> int:
     for ip in ["192.168.0.1", "192.168.1.1", "10.0.0.1", "10.0.0.2"]:
         check_scan_line(f"safe ip: {ip!r}", ip, set())
     check_scan_line("real private ip", "192.168.1.100", {"ipv4-private"})
+
+    print()
+    print("[1f] aggregate_info_findings")
+    raw = [
+        Finding(category="privacy_pattern", severity="info", path="a.py",
+                line=1, pattern="org-name-hint", snippet="Author: Tencent"),
+        Finding(category="privacy_pattern", severity="info", path="a.py",
+                line=2, pattern="org-name-hint", snippet="Author: Alibaba"),
+        Finding(category="privacy_pattern", severity="info", path="a.py",
+                line=3, pattern="real-name-hint", snippet="Author: Zhang San"),
+        Finding(category="privacy_pattern", severity="warn", path="a.py",
+                line=4, pattern="email", snippet="real@x.cn"),
+        Finding(category="privacy_pattern", severity="info", path="b.py",
+                line=1, pattern="org-name-hint", snippet="Author: Baidu"),
+    ]
+    agg = aggregate_info_findings(raw)
+    # info 按 (path,pattern) 聚合：a.py/org-name-hint 合并为1条 count=2
+    a_org = [f for f in agg if f.path == "a.py" and f.pattern == "org-name-hint"]
+    check("a.py org-name-hint aggregated to 1", len(a_org), 1)
+    check("a.py org-name-hint count==2", a_org[0].count if a_org else None, 2)
+    check("a.py org-name-hint keeps first line", a_org[0].line if a_org else None, 1)
+    # real-name-hint 单条也走聚合路径（count=1）
+    a_name = [f for f in agg if f.path == "a.py" and f.pattern == "real-name-hint"]
+    check("a.py real-name-hint count==1", a_name[0].count if a_name else None, 1)
+    # warn 不聚合，原样保留
+    check("warn email not aggregated",
+          sum(1 for f in agg if f.severity == "warn"), 1)
+    # b.py 独立
+    check("b.py org-name-hint present",
+          sum(1 for f in agg if f.path == "b.py" and f.pattern == "org-name-hint"), 1)
+    # 顺序不变性：info 在首次出现位置输出，非 info 原位保留
+    check("order preserved",
+          [(f.severity, f.pattern, f.line) for f in agg],
+          [("info", "org-name-hint", 1), ("info", "real-name-hint", 3),
+           ("warn", "email", 4), ("info", "org-name-hint", 1)])
 
     print()
 
