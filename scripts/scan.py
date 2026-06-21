@@ -232,6 +232,7 @@ class Finding:
     snippet: str | None = None
     size_bytes: int | None = None
     suggestion: str = ""
+    count: int | None = None
 
 # --------------------------------------------------------------------------- #
 # Scanners
@@ -518,6 +519,23 @@ def _self_test() -> int:
             check(f"{pat_name} on {text!r:.40}", matched, should_match)
             return
         check(f"unknown pattern: {pat_name}", False, False)
+
+    def check_scan_line(label: str, text: str, expected_patterns: set) -> None:
+        """Run scan_line on text and compare the set of matched pattern names.
+
+        expected_patterns is the set of Finding.pattern values expected.
+        Empty set means the line should produce NO finding.
+        """
+        nonlocal passed, failed
+        actual = {f.pattern for f in scan_line(text, 1, "test")}
+        if actual == expected_patterns:
+            passed += 1
+            print(f"  PASS  {label}")
+        else:
+            failed += 1
+            print(f"  FAIL  {label}")
+            print(f"        expected patterns: {expected_patterns}")
+            print(f"        actual patterns:   {actual}")
 
     print("Running self-test...")
     print()
