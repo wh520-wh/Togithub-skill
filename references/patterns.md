@@ -96,7 +96,7 @@
 
 **为什么不做强匹配**：中英文姓名形式太多，机构名只能列举；过度匹配有把合法专有名词也标红的风险，故仅 `info` 级、且 `org-name-hint` 仅在署名行触发。让 agent 看完人工二次确认。
 
-**署名行门控（2026-06 改动）**：`org-name-hint` **只在署名行上触发**。署名行定义为行首匹配 `^[\s#/*\-]*(?:作者|Author|Maintainer|Owner|Created\s+by|By|by)\s*[:：]?`。正文里的 `metadata`/`Meta` 不再误报。`ORG_NAME_HINT` 与 `MIT` 规则已去掉大小写不敏感，按真实大小写匹配。
+**署名行门控（2026-06 改动）**：`org-name-hint` **只在署名行上触发**。署名行定义为行首匹配 `^[\s#/*\-]*(?:(?:作者|Author|Maintainer|Owner|Created\s+by)\s*[:：]?|By\s*[:：]|by\s*[:：])`（`By`/`by` 需带冒号，避免正文 `by using ...`/`By the way, ...` 误判为署名行；其余前缀冒号可选）。正文里的 `metadata`/`Meta` 不再误报。`ORG_NAME_HINT` 与 `MIT` 规则已去掉大小写不敏感，按真实大小写匹配。
 
 注：`real-name-hint` **不走**此门控，而是靠 `NAME_HINT_PATTERNS` 自身前缀自门控，且需后跟姓名格式（中文 2-4 字 / Capitalized Capitalized）。该行为早于 2026-06 改动，本次未变。
 

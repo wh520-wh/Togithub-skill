@@ -268,7 +268,7 @@ EXCLUDE_CONTEXT = (
 # its own Author/Maintainer/... prefix in NAME_HINT_PATTERNS, so it needs no
 # gate here.)
 ATTRIBUTION_LINE = re.compile(
-    r"^[\s#/*\-]*(?:作者|Author|Maintainer|Owner|Created\s+by|By|by)\s*[:：]?"
+    r"^[\s#/*\-]*(?:(?:作者|Author|Maintainer|Owner|Created\s+by)\s*[:：]?|By\s*[:：]|by\s*[:：])"
 )
 ORG_NAME_HINT = re.compile(
     r"(?<![A-Za-z0-9])(武汉大学|清华大学|北京大学|复旦大学|上海交通大学|浙江大学|中山大学|华中科技大学)"
@@ -690,6 +690,10 @@ def _self_test() -> int:
                  "und mit Liebe", "Google Maps SDK", "Microsoft YaHei",
                  "本项目采用MIT协议"]:
         check_scan_line(f"non-attribution: {word!r}", word, set())
+    # 裸 by/By 正文行不应触发（By/by 需带冒号才视为署名行）
+    for word in ["by using Google Maps SDK", "by default, Microsoft Windows uses this",
+                 "By the way, Apple released a new phone"]:
+        check_scan_line(f"non-attribution: {word!r}", word, set())
     # 署名行应触发 org-name-hint
     check_scan_line("attribution: 张三 Tencent",
                     "Author: 张三 Tencent", {"real-name-hint", "org-name-hint"})
@@ -698,6 +702,9 @@ def _self_test() -> int:
     check_scan_line("attribution: pure org",
                     "Maintainer: Alibaba", {"org-name-hint"})
     check_scan_line("attribution: MIT org", "Author: MIT", {"org-name-hint"})
+    # By 带冒号仍视为署名行，应同时命中 real-name-hint 与 org-name-hint
+    check_scan_line("attribution: By colon",
+                    "By: Zhang San, Tencent", {"real-name-hint", "org-name-hint"})
 
     print()
     print("[1c] email whitelist")
