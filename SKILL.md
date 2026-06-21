@@ -124,7 +124,7 @@ python "$HOME/.claude/skills/Togithub/scripts/scan.py" . --scan-history --max-co
    - 邮箱、国内手机号（含 `+86`、带分隔符、座机）、身份证、银行卡
    - `D:\Users\<name>\` / `C:\Users\<name>\` / `/Users/<name>/` / `/home/<name>/` / `~/...`
    - 国内云密钥（阿里云 LTAI / 腾讯云 AKID / 华为云）和国际云（AWS / Stripe / Slack / Telegram / Anthropic / OpenAI / npm / PyPI / Discord webhook）
-   - 学校/公司/组织名（在 README/注释里出现的专有名词，**仅 info 级**）
+   - 学校/公司/组织名（仅在署名行如 Author/Maintainer 触发，**仅 info 级**）
    - 坐标 `(lat|lng)[\s]*[=:][\s]*[\d.-]+`、硬编码地址、私有 IP（10.x/192.168/172.16-31/loopback/ULA IPv6）
 4. **危险文件**（必须加入 .gitignore，绝不推送）
    - `.env` / `.env.*` / `.envrc` / `*.pem` / `*.key` / `id_rsa*` / `service-account*.json`
@@ -139,12 +139,14 @@ python "$HOME/.claude/skills/Togithub/scripts/scan.py" . --scan-history --max-co
 
 ```
 扫描结果（共 N 项）：
+  注：info 级提示（如学校/公司名）已按文件聚合，同类合并为一条并标注次数；warn/danger 仍逐条列出。
 
   [建议删除] .claude/ 目录（包含 12 个文件，247KB）
   [建议删除] task_plan.md, findings.md, progress.md
   [建议替换] README.md:42 — 含 "由 Claude 生成的自动签到脚本"
   [建议替换] config.ini.example:8 — 含邮箱 xxx@example.com
   [建议替换] main.py:120 — 含本地路径 D:\wh520\...
+  [建议检查] CREDITS.md — 含 3 处组织名署名（org-name-hint，已聚合）
   [建议检查] 历史 commit:a8b224f:config.py:1 — 旧 commit 包含 API key
 
   逐项确认处理方式（删除 / 替换为 <REDACTED> / 跳过）？

@@ -60,8 +60,8 @@
 | `id-card-cn` | `[1-9]\d{5}(18\|19\|20)\d{2}(0\d\|1[0-2])([0-2]\d\|3[01])\d{3}[\dXx]` | **danger** |
 | `bank-card` | `\d{16,19}`（连续 16-19 位数字，排除十六进制/UUID 和全重复数字，未做 Luhn） | **danger** |
 | `api-key` | `(api[_-]?key\|secret\|token\|...)\s*[:=]\s*['\"]?([A-Za-z0-9_\-/+=]{16,})['\"]?` | **danger** |
-| `local-path-win` | `[A-Z]:\\Users\\[\w\-\. ]+\\` | warn |
-| `local-path-unix` | `/(?:Users\|home)/[\w\-\. ]+/` | warn |
+| `local-path-win` | `[A-Z]:\\Users\\([\w\-\. ]+)\\` | warn |
+| `local-path-unix` | `/(?:Users\|home)/([\w\-\. ]+)/` | warn |
 | `home-tilde` | `~/\.?(?:ssh\|aws\|config\|gnupg)/[\w\-\.]+` | warn |
 | `ipv4-private` | `10.x` / `192.168.x` / `172.16-31.x`（不含 127 loopback） | warn |
 | `ipv6-private` | `fc/fd` 开头 ULA + `fe[89ab]` link-local | warn |
@@ -83,12 +83,22 @@
 | `discord-webhook` | `https://discord.com/api/webhooks/<id>/<token>` | **danger** |
 | `github-token` | `gh[pousr]_[A-Za-z0-9]{36,}` | **danger** |
 
+**占位符白名单（2026-06 改动，命中不报）**：
+- `email`：保留 TLD（`.example`/`.test`/`.invalid`/`.localhost`）、保留域名（`example.com`/`example.org`/`example.net`/`test.com`）、`noreply@github.com`。GitHub 平台域（`github.com`/`users.noreply.github.com`）配合占位 local（`user`/`foo`/`noreply`/`admin` 等）也不报；真实邮箱（含 `apple.com`、`zhangsan@users.noreply.github.com`）仍按 warn 报。
+- `local-path-win`/`local-path-unix`：用户名段为占位符（`user`/`alice`/`foo`/`default`/`guest` 等）时不报；真实用户名仍报。
+- `ipv4-private`：默认网关（`192.168.0.1`/`192.168.1.1`/`10.0.0.1`/`10.0.0.2`）不报；其余私有 IP 仍报。
+- 白名单命中走 `continue`，**不中断**同行其他真实隐私的检测。
+
 ## 姓名/组织名提示（仅 `info`，需要人工复核）
 
 - `^\s*(?:作者|Author|By|by|Maintainer)\s*[:：]\s*...` — 真实姓名
-- 常见学校名（武大/清华/...）+ 常见公司名（Microsoft/Google/...）— 仅在 README/注释里出现时算
+- 常见学校名（武大/清华/...）+ 常见公司名（Microsoft/Google/...）— 仅在署名行触发
 
-**为什么不做强匹配**：中英文姓名形式太多，机构名只能列举；过度匹配会把项目里"Google 地图 SDK"等合法引用也标红。让 agent 看完人工二次确认。
+**为什么不做强匹配**：中英文姓名形式太多，机构名只能列举；过度匹配有把合法专有名词也标红的风险，故仅 `info` 级、且 `org-name-hint` 仅在署名行触发。让 agent 看完人工二次确认。
+
+**署名行门控（2026-06 改动）**：`org-name-hint` **只在署名行上触发**。署名行定义为行首匹配 `^[\s#/*\-]*(?:作者|Author|Maintainer|Owner|Created\s+by|By|by)\s*[:：]?`。正文里的 `metadata`/`Meta` 不再误报。`ORG_NAME_HINT` 与 `MIT` 规则已去掉大小写不敏感，按真实大小写匹配。
+
+注：`real-name-hint` **不走**此门控，而是靠 `NAME_HINT_PATTERNS` 自身前缀自门控，且需后跟姓名格式（中文 2-4 字 / Capitalized Capitalized）。该行为早于 2026-06 改动，本次未变。
 
 ## 跳过的目录
 
@@ -118,6 +128,8 @@ Library, DerivedData, bin, obj
 - `suggestion` 改成"考虑 amend/rebase 此 commit，或用 `git filter-repo` 重写历史"
 
 默认 `--max-commits=200`，可调。
+
+**info 级聚合（2026-06 改动）**：文件扫描、历史扫描**各自**对 `info` 级 finding 按 `(path, pattern)` 聚合成一条（带 `count` 字段）。历史 path 归一化到 `commit:<sha>:<file>` 再聚合。`warn`/`danger` 不聚合。
 
 ## 怎么扩展
 
