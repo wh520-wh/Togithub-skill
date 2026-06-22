@@ -358,7 +358,7 @@ gh repo edit <owner>/<repo> --description "<描述>"
    gh repo edit <owner>/<repo> --add-topic <topic1> --add-topic <topic2> ...
    ```
 
-**更新路径的 topics 模式**：更新路径问 topics 时多一档选择——「仅追加」/「替换全部」。替换全部时先 `gh repo edit --remove-topic <现有>` 清掉现有 topics，再 `--add-topic` 新的。
+**更新路径的 topics 模式**：更新路径问 topics 时多一档选择——「仅追加」/「替换全部」。替换全部时先用 `gh api repos/<owner>/<repo>/topics --jq '.names[]'` 取出现有 topics 列表，逐个 `gh repo edit <owner>/<repo> --remove-topic <现有topic>` 清掉，再 `--add-topic` 新的。
 
 **失败处理**：
 - Step 7 push 失败：跳过 7.5，进 Step 9 报告失败。
