@@ -220,6 +220,91 @@ python "$HOME/.claude/skills/Togithub/scripts/scan.py" . --scan-history --max-co
 
 `LICENSE` 模板见 `assets/license-<name>.txt`，直接拷贝到 `LICENSE` 文件。
 
+---
+
+### Step 6.5: 门面装饰·README 起草
+
+**执行时机**：见「执行顺序总览」——新建路径在落盘 .gitignore/LICENSE 之后、Step 3 扫描之前；更新路径在 Step 2b 之后、Step 3 扫描之前（先问要不要重写）。README 草稿与 .gitignore/LICENSE 同批落盘，一起进 Step 3 扫描——这样 AI 不慎写进 README 的邮箱/本地路径会被扫描器抓出来，在 Step 5 清理、Step 6.6 刷新。
+
+**触发条件**：
+- 新建仓库路径（Step 2a）：自动执行。
+- 更新已有仓库路径（Step 2b）：先问「要不要重写 README」，默认不动。
+
+**已有 README 检测**：检测根目录及 `docs/` 下的 README 文件（`README.md` / `README.rst` / `README` / `README.markdown` / `README.txt` / `README.zh.md` / `README.cn.md`，大小写不敏感）。多处存在时优先根目录。检测到则问用户「保留 / 重写」。
+
+**重写前备份**：判断 README 是否已被 git 跟踪（`git ls-files <README路径>` 有输出即已跟踪）：
+- 已跟踪：可直接重写，内容可从 git 历史恢复。
+- 未跟踪：先备份为 `README.bak.md`，再重写。报告里提示「原 README 已备份为 README.bak.md，确认无误后可删除」。
+
+无 README 时直接走生成流程。
+
+**起草流程**：
+
+1. **AI 读代码起草**（读码范围有界，避免大项目读爆 context）：
+   - 必读：入口文件（`main.py`/`index.js`/`app.py`/`main.go` 等）、依赖清单（`requirements.txt`/`package.json`/`go.mod`/`Cargo.toml` 等）、顶层目录结构、现有 README/文档。
+   - 按需：配置文件、CLI 参数定义。
+
+2. **合并确认**（用**一次** `AskUserQuestion` 多字段问询，不逐子项问）：
+   - 项目一句话介绍（AI 给草稿，用户可改）
+   - 核心功能亮点 2–4 条（AI 从代码推断，用户勾选/增删）
+   - README 语言（AI 判定，用户确认）
+
+3. 用户确认后，AI 生成 README 草稿落盘。
+
+**README 语言判定**：
+- 有代码注释：按注释主体语言判定。
+- 无注释/无法判定（纯数据、配置项目、空仓库）：默认中文，在确认问询里让用户可改。
+- 中英混合：按注释主体语言；旗鼓相当时默认中文并让用户确认。
+
+**README 结构模板**（固定骨架）：
+
+```markdown
+# <项目名>
+
+<一句话介绍>
+
+## 功能
+- <亮点 1>
+- <亮点 2>
+
+## 安装
+<从依赖清单+入口文件推断的最小安装步骤>
+
+## 使用
+<从代码/CLI 参数推断的最小用法；推断不准留占位让用户填>
+
+## 目录结构
+<占位：Step 6.6 清理后回填定稿>
+
+## License
+<见下文分支>
+```
+
+**License 章节分支**：
+- 用户在 Step 2a 选了 LICENSE（MIT/Apache-2.0/...）：写「本项目采用 <LICENSE> 协议，详见 [LICENSE](LICENSE)」。
+- 用户选了「不生成」：写「License: 待定」并留占位提示让用户填。
+
+**风格约束**：不堆 badge，不放截图占位，不造图。推断不准的章节留简短占位提示让用户填，不编造内容。
+
+---
+
+### Step 6.6: 门面装饰·README 刷新
+
+**执行时机**：在 Step 5（应用清理）之后、Step 7（commit）之前。**仅当 Step 6.5 生成/重写了 README 草稿时执行**；若用户在 6.5 选了「保留原 README」则跳过本步。
+
+**刷新内容**：
+
+1. **目录树回填**：清理可能删除了 `.claude/`、`task_plan.md`、`findings.md`、`progress.md` 等文件。重新扫描目录，把「## 目录结构」章节回填为清理后的真实两级树，**不列已删文件**。
+
+2. **README 清理可读性复核**：Step 5 把扫描命中的隐私行按 scan.py suggestion 替换为 `<REDACTED>` 类占位——这对代码合理，对 README 说明性示例会坏掉可读性（如 `python main.py --config <LOCAL-PATH-WIN>`）。
+   - **仅把 Step 5 产生的 `<REDACTED>` 类默认占位**（即用户在 Step 4 没特别指定、走默认替换的那些行）改写为通用占位示例：
+     - 本地路径 → `/path/to/config.ini` 或 `./config.ini`
+     - 邮箱 → `you@example.com`
+     - 手机 → `13800000000`
+     - API key → `your-api-key-here`
+   - **用户在 Step 4 选了「保留」或给了自定义占位的行，6.6 不动**——尊重用户的清理决策。
+   - 刷新后通读一遍 README，确认示例行仍读得通。
+
 ### Step 7: 提交 + 推送
 
 **commit message 格式**（Conventional Commits，**不带** Co-Authored-By）：
@@ -240,6 +325,51 @@ git status                # 再次确认要提交的内容
 git commit -m "..."
 git push origin <branch>  # 或 git push -u origin main（首次）
 ```
+
+---
+
+### Step 7.5: 门面装饰·仓库层（描述 + topics）
+
+**执行时机**：在 Step 7（push）之后、Step 8（EXE/Release）之前。**Step 7 push 失败则跳过本步**，直接进 Step 9 报告失败——仓库不存在时 `gh repo edit` 必然失败，不白跑。
+
+**触发条件**：
+- 新建仓库路径：push 成功后自动执行。
+- 更新已有仓库路径：先问「要不要顺便更新仓库描述/topics」，说要才跑。
+
+**仓库描述（description）**：
+
+来源（统一，不重复问、不做「对比哪个准」的主观判断）：
+- 新建路径：复用 Step 6.5 里用户确认过的「项目一句话介绍」。
+- 更新路径：读现有 README 第一段作草稿，用 `AskUserQuestion` 让用户确认或改。
+
+设置：
+```bash
+gh repo edit <owner>/<repo> --description "<描述>"
+```
+**shell 转义**：描述若含 `"`/`$`/反引号等 shell 元字符，用单引号包裹或经 gh 参数传递避免展开；设置前校验内容。
+
+**topics 话题标签**：
+
+来源：AI 推断 + 用户勾选。
+
+1. AI 读代码推断候选 topics：主语言（`python`/`typescript`/`go`…）、框架/依赖名（`customtkinter`/`fastapi`/`react`…）、项目类型词（`automation`/`cli`/`gui`/`web-scraper`…），凑 4–8 个候选。
+2. 用 `AskUserQuestion` 把候选列出来让用户多选勾选，也可自己补。
+3. 用户选完，经 `normalize_topics.py` 归一化校验：
+   ```bash
+   python "$HOME/.claude/skills/Togithub/scripts/normalize_topics.py" <topic1> <topic2> ...
+   ```
+   **退出码语义**：0=无改动；1=有归一化改动（**正常，非失败**，仍取 stdout 结果继续调 gh）；2=用法错误（真失败，停下报告）。stderr 是改动告警。无论 0 还是 1，都用 stdout 的归一化结果调 gh；仅 2 才中止。
+4. 用 `gh repo edit` 加上（取 stdout 结果，每行一个 topic）：
+   ```bash
+   gh repo edit <owner>/<repo> --add-topic <topic1> --add-topic <topic2> ...
+   ```
+
+**更新路径的 topics 模式**：更新路径问 topics 时多一档选择——「仅追加」/「替换全部」。替换全部时先 `gh repo edit --remove-topic <现有>` 清掉现有 topics，再 `--add-topic` 新的。
+
+**失败处理**：
+- Step 7 push 失败：跳过 7.5，进 Step 9 报告失败。
+- `gh repo edit` 失败（网络/权限）：不卡流程，记下来在 Step 9 报告提示「仓库描述/topics 设置失败，可手动补」。README 已在仓库里，门面主体不丢。
+- topics 推断不出任何候选：跳过 topics，只设描述，报告提一句「未自动设 topics」。
 
 ### Step 8: 判断是否需要打包 EXE 并询问 Release
 
@@ -313,6 +443,10 @@ gh release upload <tag> "dist/app.exe#显示文件名.exe" -R <owner/<repo>
 - 可见性（public/private）
 - 提交的文件数
 - 清理项摘要（删了 N 个文件、替换了 N 处）
+- 门面装饰摘要：
+  - README：新生成 / 已保留原版 / 已重写（原版备份于 README.bak.md）
+  - 仓库描述：已设置 "<描述>" / 设置失败 / 已跳过
+  - topics：python, automation, gui（共 3 个）/ 未设置（推断失败）/ 已跳过
 - Release 更新情况（如有）
 
 ## 硬性规则
@@ -324,6 +458,8 @@ gh release upload <tag> "dist/app.exe#显示文件名.exe" -R <owner/<repo>
 5. 扫到大文件（>10MB，非 LFS）停下警告，让用户决定。
 6. 如果 `gh auth status` 失败，停下让用户跑 `gh auth login`。
 7. 如果 README/CHANGELOG/CLAUDE.md 包含个人姓名、组织名，先标出再问。
+8. **门面装饰只在新建仓库自动走全套；更新已有仓库必须先问，默认不动**——防把老仓库精心弄的 README/描述/topics 覆盖掉。
+9. **重写 README、设置 topics 前至少一次 `AskUserQuestion` 确认**——不替用户决定 README 保留还是重写、不替用户定 topics。确认点合并成多字段一次问询，不逐子项追问。Step 6.6 不得改动用户在 Step 4 选了「保留」或给了自定义占位的行。
 
 ## 边界
 
@@ -333,9 +469,13 @@ gh release upload <tag> "dist/app.exe#显示文件名.exe" -R <owner/<repo>
 - 跑测试 / lint / build
 - 自动生成 commit history 改写（只提示 + 询问）
 - 处理 LFS / submodule / monorepo 拆分
+- 生成封面图 / social preview / badge / CONTRIBUTING 等配套文档
+- 改 default branch / pages / wiki
 
 本 skill **可以**做：
 - 检测 EXE 打包产物并询问是否上传到 GitHub Release
+- 生成/重写 README（含清理后刷新）
+- 用 `gh repo edit` 设置仓库描述和 topics
 
 ## 失败模式
 
@@ -368,10 +508,19 @@ python scripts/scan.py /path/to/project
 
 测试通过后才能提交改动。
 
+normalize_topics.py 自带回归测试，改完归一化规则后必跑：
+
+```bash
+python scripts/normalize_topics.py --self-test
+```
+
+`--self-test` 验证：基本归一化（大小写/连字符/连续连字符/首尾连字符）、非 ASCII（中文/emoji）被丢弃、长度截断（50 字符）、dedup、总数上限（20）、纯数字/单字符 topic。
+
 ## 文件清单
 
 - `SKILL.md` — 本文件
 - `scripts/scan.py` — 扫描脚本（核心）
+- `scripts/normalize_topics.py` — GitHub topics 归一化校验脚本（含 `--self-test`）
 - `references/patterns.md` — 完整正则表
 - `references/gitignore-templates.md` — 按项目类型的 .gitignore 模板
 - `assets/license-*.txt` — 5 种 LICENSE 模板
