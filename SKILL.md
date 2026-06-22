@@ -220,8 +220,6 @@ python "$HOME/.claude/skills/Togithub/scripts/scan.py" . --scan-history --max-co
 
 `LICENSE` 模板见 `assets/license-<name>.txt`，直接拷贝到 `LICENSE` 文件。
 
----
-
 ### Step 6.5: 门面装饰·README 起草
 
 **执行时机**：见「执行顺序总览」——新建路径在落盘 .gitignore/LICENSE 之后、Step 3 扫描之前；更新路径在 Step 2b 之后、Step 3 扫描之前（先问要不要重写）。README 草稿与 .gitignore/LICENSE 同批落盘，一起进 Step 3 扫描——这样 AI 不慎写进 README 的邮箱/本地路径会被扫描器抓出来，在 Step 5 清理、Step 6.6 刷新。
@@ -286,8 +284,6 @@ python "$HOME/.claude/skills/Togithub/scripts/scan.py" . --scan-history --max-co
 
 **风格约束**：不堆 badge，不放截图占位，不造图。推断不准的章节留简短占位提示让用户填，不编造内容。
 
----
-
 ### Step 6.6: 门面装饰·README 刷新
 
 **执行时机**：在 Step 5（应用清理）之后、Step 7（commit）之前。**仅当 Step 6.5 生成/重写了 README 草稿时执行**；若用户在 6.5 选了「保留原 README」则跳过本步。
@@ -325,8 +321,6 @@ git status                # 再次确认要提交的内容
 git commit -m "..."
 git push origin <branch>  # 或 git push -u origin main（首次）
 ```
-
----
 
 ### Step 7.5: 门面装饰·仓库层（描述 + topics）
 
