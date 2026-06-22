@@ -152,7 +152,7 @@ def main(argv: list[str]) -> int:
     topics = list(args.topics)
     # also read stdin if piped
     if not sys.stdin.isatty():
-        topics += sys.stdin.read().split()
+        topics += [line for line in sys.stdin.read().splitlines() if line.strip()]
 
     if not topics:
         print("usage: normalize_topics.py <topic1> <topic2> ...", file=sys.stderr)
