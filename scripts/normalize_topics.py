@@ -36,11 +36,14 @@ def normalize_one(topic: str) -> tuple[str, str | None]:
     # lowercase
     t = topic.lower()
     # ASCII-only: anything not [a-z0-9-] becomes hyphen (this drops Chinese/Cyrillic/emoji)
-    t = re.sub(r"[^a-z0-9-]", "-", t)
+    t2 = re.sub(r"[^a-z0-9-]", "-", t)
+    chars_replaced = t2 != t
+    t = t2
     # collapse consecutive hyphens
-    while "--" in t:
-        t = t.replace("--", "-")
+    collapsed = "--" in t
+    t = re.sub(r"-+", "-", t)
     # strip leading/trailing hyphens
+    stripped = t != t.strip("-")
     t = t.strip("-")
     # truncate
     truncated = False
@@ -53,7 +56,7 @@ def normalize_one(topic: str) -> tuple[str, str | None]:
             warning = f"'{original}' -> rejected (empty after normalization)"
         else:
             parts = []
-            if re.sub(r"[^a-z0-9-]", "-", original.lower()).strip("-") != original:
+            if chars_replaced or collapsed or stripped:
                 parts.append("chars normalized")
             if truncated:
                 parts.append(f"truncated to {MAX_LEN} chars")
@@ -90,6 +93,15 @@ def self_test() -> int:
         if norm != expected:
             failures.append(f"normalize_one({topic!r}) = {norm!r}, expected {expected!r}")
 
+    def check_warn(topic: str, expected_norm: str, warn_contains: str | None, warn_not_contains: str | None = None) -> None:
+        norm, warn = normalize_one(topic)
+        if norm != expected_norm:
+            failures.append(f"normalize_one({topic!r}) norm = {norm!r}, expected {expected_norm!r}")
+        if warn_contains is not None and (warn is None or warn_contains not in warn):
+            failures.append(f"normalize_one({topic!r}) warn = {warn!r}, expected to contain {warn_contains!r}")
+        if warn_not_contains is not None and (warn is not None and warn_not_contains in warn):
+            failures.append(f"normalize_one({topic!r}) warn = {warn!r}, expected NOT to contain {warn_not_contains!r}")
+
     # basic normalization
     check("Python", "python")
     check("Web Scraper", "web-scraper")
@@ -107,6 +119,10 @@ def self_test() -> int:
     check("数据", "")        # Chinese -> all hyphens -> stripped -> empty
     check("🚀rocket", "rocket")  # emoji -> hyphen, rocket kept
     check("数据爬虫", "")
+    # warning label correctness
+    check_warn("Python", "python", warn_contains=None, warn_not_contains="chars normalized")  # 大小写变化不标 chars normalized
+    check_warn("a--b", "a-b", warn_contains="chars normalized")  # 折叠连字符要标
+    check_warn("Web Scraper", "web-scraper", warn_contains="chars normalized")  # 空格替换要标
     # empty after normalization
     norm, _ = normalize_one("+++")
     if norm != "":
@@ -155,8 +171,7 @@ def main(argv: list[str]) -> int:
         topics += [line for line in sys.stdin.read().splitlines() if line.strip()]
 
     if not topics:
-        print("usage: normalize_topics.py <topic1> <topic2> ...", file=sys.stderr)
-        return 2
+        parser.error("provide at least one topic (or use --self-test)")
 
     result, warnings = normalize_topics(topics)
     for w in warnings:
