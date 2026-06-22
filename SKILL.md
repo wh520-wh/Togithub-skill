@@ -101,7 +101,7 @@ git init
 
 # 5. 执行 Step 6.6 刷新 README（清理后回填目录树、修被占位坏掉的示例）
 
-# 6. 提交并推送（Step 7）
+# 6. 提交（push 由下一步 gh repo create 完成，Step 7）
 git add .
 git commit -m "chore: initial commit"
 
@@ -121,7 +121,7 @@ git fetch origin      # 同步远端
 
 进入 Step 3 清理后再 add/commit/push。
 
-> 门面：更新路径下，先执行 Step 6.5 问「要不要重写 README」，要重写则落盘草稿（在 Step 3 扫描之前）；Step 3 扫描 → Step 5 清理后执行 Step 6.6 刷新 README（若重写过）；Step 7 push 后执行 Step 7.5 问「要不要更新描述/topics」。详见「执行顺序总览」。
+> 门面：更新路径下，先执行 Step 6.5 问「要不要重写 README」，要重写则落盘草稿（在 Step 3 扫描之前）；Step 3 扫描 → Step 4/5 确认清理后执行 Step 6.6 刷新 README（若重写过）；Step 7 push 后执行 Step 7.5 问「要不要更新描述/topics」。详见「执行顺序总览」。
 
 ### Step 3: 扫描待清理项
 
