@@ -38,6 +38,22 @@ python --version                   # 需要 Python 3.9+（scan.py 用了 `int | 
 
 按顺序执行，每步结果决定下一步。
 
+### 执行顺序总览（含门面装饰）
+
+门面装饰插入后，两条路径的完整执行顺序：
+
+**新建仓库路径（Step 2a）**：
+```
+Step 1 摸状态 → Step 2a 选配置(名/可见性/LICENSE/gitignore) → 落盘 .gitignore + LICENSE + Step 6.5 README 草稿 → Step 3 扫描(含 README) → Step 4/5 确认清理 → Step 6.6 刷新 README → Step 7 commit/push → Step 7.5 设描述+topics → Step 8/9
+```
+
+**更新已有仓库路径（Step 2b）**：
+```
+Step 1 摸状态 → Step 2b 问要不要重写 README(要则 Step 6.5 落盘草稿) → Step 3 扫描 → Step 4/5 确认清理 → Step 6.6 刷新 README(若重写过) → Step 7 commit/push → Step 7.5 问要不要更新描述/topics → Step 8/9
+```
+
+关键：README 草稿必须在 Step 3 扫描**之前**落盘，否则其自身成为扫描盲区。
+
 ### Step 1: 摸清当前状态
 
 并行跑：
@@ -65,30 +81,35 @@ gh repo view --json name,visibility,isPrivate,url 2>/dev/null
 
 1. **仓库名**（默认用当前目录名）
 2. **公开/私有**（**每次都强制问**，不要默认 public——误推私会出事）
-3. **描述**（可选，留空用项目 README 头一行）
-4. **LICENSE**（MIT / Apache-2.0 / GPL-3.0 / BSD-3-Clause / 不生成）
-5. **是否生成 .gitignore**（按项目类型自动生成 / 我自己提供 / 不要）
+3. **LICENSE**（MIT / Apache-2.0 / GPL-3.0 / BSD-3-Clause / 不生成）
+4. **是否生成 .gitignore**（按项目类型自动生成 / 我自己提供 / 不要）
 
-**⚠️ 关键顺序**：先落盘 `.gitignore` 和 `LICENSE` → 再走 Step 3 扫描 → 再 add → 再 commit → 最后才调 `gh repo create --source=.`。**绝不能先跑 `gh repo create --source=.`**，它会隐式 `git init && add -A && commit`，绕过扫描、绕过 .gitignore，吞掉 `.env`/大文件。
+> 仓库描述不在这一步问——会在 Step 6.5 生成 README 时确认一句话介绍，Step 7.5 统一设置。避免描述被设两次。
+
+**⚠️ 关键顺序**（严格遵守，否则门面和扫描都会失效）：先落盘 `.gitignore` 和 `LICENSE` → 执行 Step 6.5 起草 README 草稿 → 再走 Step 3 扫描（覆盖 .gitignore/LICENSE/README）→ Step 5 清理 → Step 6.6 刷新 README → Step 7 add/commit/push。**绝不能先跑 `gh repo create --source=.`**，它会隐式 `git init && add -A && commit`，绕过扫描、绕过 .gitignore、绕过 README 起草，吞掉 `.env`/大文件。
 
 ```bash
 # 1. 仅当状态 A 时初始化
 git init
 
-# 2. 先把 .gitignore 和 LICENSE 写到磁盘
-#    （按用户选择生成，模板见 references/gitignore-templates.md 和 assets/license-*.txt）
+# 2. 落盘 .gitignore 和 LICENSE（按用户选择生成，模板见 references/gitignore-templates.md 和 assets/license-*.txt）
 
-# 3. 跑 Step 3 的扫描 + 确认 + 清理
+# 3. 执行 Step 6.5 起草 README 草稿并落盘（与 .gitignore/LICENSE 同批）
+#    ——必须在 Step 3 扫描之前，否则 README 自身成扫描盲区
 
-# 4. 提交（必须在 gh repo create 之前）
+# 4. 走 Step 3 扫描 + Step 4 确认 + Step 5 清理（扫描覆盖 .gitignore/LICENSE/README）
+
+# 5. 执行 Step 6.6 刷新 README（清理后回填目录树、修被占位坏掉的示例）
+
+# 6. 提交并推送（Step 7）
 git add .
 git commit -m "chore: initial commit"
 
-# 5. 最后才创建远程仓库并推送
-gh repo create <name> --<public|private> --source=. --remote=origin --description="<desc>"
+# 7. 最后才创建远程仓库并推送（Step 7）
+gh repo create <name> --<public|private> --source=. --remote=origin
 ```
 
-如果走 `--source=.` 时本地已经提交了，gh 会直接 push 现有 commits，不会重复 commit。
+**注意**：`gh repo create --source=.` 会在本地已提交后直接 push 现有 commits，不再重复 commit，也不带 `--description`（描述统一在 Step 7.5 设）。commit 和 push 都在 Step 7 完成，Step 2a 只负责选配置 + 落盘 .gitignore/LICENSE + 触发 Step 6.5。
 
 ### Step 2b: 已有仓库，更新
 
@@ -99,6 +120,8 @@ git fetch origin      # 同步远端
 ```
 
 进入 Step 3 清理后再 add/commit/push。
+
+> 门面：更新路径下，先执行 Step 6.5 问「要不要重写 README」，要重写则落盘草稿（在 Step 3 扫描之前）；Step 3 扫描 → Step 5 清理后执行 Step 6.6 刷新 README（若重写过）；Step 7 push 后执行 Step 7.5 问「要不要更新描述/topics」。详见「执行顺序总览」。
 
 ### Step 3: 扫描待清理项
 
